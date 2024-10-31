@@ -1,0 +1,22 @@
+# Application Definition 
+company      = ""
+username     = ""
+app_id       = ""
+app_name     = ""
+environment  = "dev" # Dev, Test, Prod, etc
+ssh_key_path = ""
+ssh_hosts    = ""
+ssh_remote   = ""
+
+# GCP Settings
+gcp_project = "oro-product-qa"
+gcp_region  = "us-central1"
+gcp_zone    = "us-central1-c"
+#gcp_auth_file = "../auth/??.json"
+
+# GCP Netwok
+network-subnet-cidr = "10.10.10.0/24"
+
+# Linux VM
+#linux_instance_type = "f1-micro"
+linux_instance_type = "n2-standard-2"

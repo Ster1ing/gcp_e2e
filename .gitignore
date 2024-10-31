@@ -36,5 +36,11 @@ override.tf.json
 .terraformrc
 terraform.rc
 
+# Custom
+.terraform.lock.hcl
+.ssh/*
+!.ssh/.gitkeep
+ansible/hosts
+
 # Ansible
 *.retry
