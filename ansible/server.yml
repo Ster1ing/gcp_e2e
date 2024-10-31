@@ -212,9 +212,6 @@
         group: root
         mode: '0755'
       become: true
-
-    - name: Prepare DISPLAY value for chromedriver
-      ansible.builtin.shell: export DISPLAY=:10
     
     - name: Start ChromeDriver [{{ chromedriver_cmd }}]
       ansible.builtin.shell: "{{ chromedriver_cmd }}"
@@ -222,6 +219,7 @@
         executable: /bin/bash
       async: 10
       poll: 0
+      become: no
 
     - name: Install Visual Studio Code
       ansible.builtin.snap:
@@ -236,11 +234,3 @@
     - name: ToDo '#1 - set password for current use to use RDP
       ansible.builtin.debug:
         msg: "sudo passwd {{ user }}"
-    
-    - name: ToDo '#2 - add xfce4 session
-      ansible.builtin.debug:
-        msg: "echo xfce4-session>~/.xsession"
-    
-    - name: ToDo '#3 - rerun Cromedriver on selected DISPLAY
-      ansible.builtin.debug:
-        msg: "export DISPLAY=:10"
