@@ -44,3 +44,5 @@ ansible/hosts
 
 # Ansible
 *.retry
+ansible/vars/*
+!ansible/vars/*.dist

@@ -1,0 +1,246 @@
+---
+- hosts: server
+  become: yes
+  vars_files:
+    - vars/server_vars.yml    
+  tasks:
+
+    - name: Start message
+      ansible.builtin.debug:
+        msg: "Create task to deploy E2E remote environment"
+    
+    - name: Upgrade all packages
+      ansible.builtin.apt:
+        upgrade: yes
+        update_cache: yes
+
+    - name: Install required packages
+      ansible.builtin.apt:
+        name: 
+          - curl
+          - git
+          - unzip
+          - dirmngr
+          - apt-transport-https          
+          - lsb-release
+          - ca-certificates
+          - htop
+          - xfce4
+          - xrdp          
+          - gcc
+          - clang
+          - llvm
+          - g++
+          - valgrind
+          - make
+          - cmake
+          - build-essential        
+        state: present
+        update_cache: yes    
+
+    - name: Start xrdp service
+      ansible.builtin.systemd_service:
+        name: xrdp
+        state: started
+        enabled: true        
+    
+    - name: Configure XFCE4 as default session for xrdp
+      ansible.builtin.shell: 'echo xfce4-session > /home/{{ user }}/.xsession'
+      args:
+        creates: /home/{{ user }}/.xsession
+      changed_when: false
+      become: true
+      become_user: "{{ user }}"
+
+    - name: Add NodeSource repository for Node.js 20.x
+      ansible.builtin.shell: "curl -sL https://deb.nodesource.com/setup_20.x | bash -"
+
+    - name: Install Node.js
+      ansible.builtin.apt:
+        name: nodejs
+        state: present
+
+    - name: Add php repository
+      ansible.builtin.apt_repository:
+        repo: ppa:ondrej/php
+        state: present
+    
+    - name: Installation of PHP8 and its dependencies
+      ansible.builtin.apt:
+        name:
+          - php8.3
+          - php8.3-fpm 
+          - php8.3-cli 
+          - php8.3-pdo 
+          - php8.3-mysqlnd 
+          - php8.3-xml 
+          - php8.3-soap 
+          - php8.3-gd 
+          - php8.3-zip 
+          - php8.3-intl 
+          - php8.3-mbstring
+          - php8.3-opcache 
+          - php8.3-curl 
+          - php8.3-bcmath 
+          - php8.3-ldap 
+          - php8.3-pgsql 
+          - php8.3-dev 
+          - php8.3-mongodb
+      
+    - name: Set PHP FPM configuration
+      ansible.builtin.lineinfile:
+        path: "/etc/php/8.3/fpm/php.ini"
+        line: "{{ item }}"
+        create: yes
+      with_items:
+        - "memory_limit = 2048M"
+        - "max_input_time = 600"
+        - "max_execution_time = 600"
+        - "realpath_cache_size=4096K"
+        - "realpath_cache_ttl=600"
+        - "opcache.enable=1"
+        - "opcache.enable_cli=0"
+        - "opcache.memory_consumption=512"
+        - "opcache.interned_strings_buffer=32"
+        - "opcache.max_accelerated_files=32531"
+        - "opcache.save_comments=1"
+
+    - name: Set PHP CLI memory limit
+      ansible.builtin.lineinfile:
+        path: "/etc/php/8.3/cli/php.ini"
+        line: "memory_limit = 2048M"
+        create: yes
+      
+    - name: Install Composer
+      ansible.builtin.get_url:
+        url: https://getcomposer.org/download/latest-stable/composer.phar
+        dest: /usr/local/bin/composer
+        mode: 0755
+
+    - name: Clone a GitHub repository
+      ansible.builtin.git:        
+        repo: https://{{git_user}}:{{git_token}}@github.com/{{app_repo}}/dev.git
+        dest: ./app_source
+        version: "{{ app_repo_branch }}"
+        clone: yes
+        update: yes
+      become: false
+    
+    - name: Ensures {{ app_path }} dir exists
+      file: 
+        path: "{{ app_path }}"
+        state: directory
+
+    - name: Copy project to {{ app_path }}
+      ansible.builtin.copy:
+        src: ./app_source/
+        dest: "{{ app_path }}"
+        remote_src: true
+
+    - name: Run composer install
+      ansible.builtin.shell: "sudo COMPOSER=dev.json COMPOSER_PROCESS_TIMEOUT=2000 COMPOSER_ALLOW_SUPERUSER=1 composer install -n"
+      args:
+        chdir: "{{ composer_workdir }}"    
+
+    - name: Generate Behat.yml
+      ansible.builtin.template:
+        src: behat.yml.j2
+        dest: "{{ composer_workdir }}/behat.yml"
+    
+    - name: Add .env-app behat configuration
+      lineinfile: 
+        dest: "{{ composer_workdir }}/.env-app"
+        line: '{{ item }}'
+      with_items:
+        - ' '
+        - '###> Behat e2e config ###'
+        - 'API_BASE_URL="{{ api_url }}"'
+        - 'ACCESS_API_TOKEN="{{ api_token }}"'        
+        - '###< Behat e2e config ###'
+    
+    - name: Set permissions for user 
+      ansible.builtin.file:
+        path: "{{ app_path }}"
+        owner: "{{ user }}"
+        group: "{{ user }}"
+        mode: 0755
+        recurse: yes
+
+    - name: Download Google Chrome
+      ansible.builtin.get_url:
+        url: "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb"
+        dest: "/tmp/google-chrome-stable_current_amd64.deb"
+
+    - name: Install Google Chrome
+      ansible.builtin.apt:
+        deb: "/tmp/google-chrome-stable_current_amd64.deb"
+      ignore_errors: yes
+
+    - name: Fix missing dependencies after Chrome installation
+      ansible.builtin.apt:
+        update_cache: yes
+        autoremove: yes
+
+    - name: Download ChromeDriver {{ chromedriver_version }}
+      ansible.builtin.get_url:
+        url: "https://storage.googleapis.com/chrome-for-testing-public/{{ chromedriver_version }}/linux64/chromedriver-linux64.zip"
+        dest: "/tmp/chromedriver-linux64.zip"
+
+    - name: Create ChromeDriver directory
+      ansible.builtin.file:
+        path: /tmp/chromedriver
+        state: directory
+
+    - name: Unzip ChromeDriver
+      ansible.builtin.unarchive:
+        src: /tmp/chromedriver-linux64.zip
+        dest: /tmp/chromedriver
+        remote_src: yes
+        creates: /tmp/chromedriver/chromedriver-linux64
+
+    - name: Move ChromeDriver to /usr/bin
+      ansible.builtin.command:
+        cmd: mv /tmp/chromedriver/chromedriver-linux64/chromedriver /usr/bin/chromedriver
+      become: true
+      args:
+        removes: /tmp/chromedriver/chromedriver-linux64/chromedriver
+
+    - name: Set ChromeDriver ownership and permissions
+      ansible.builtin.file:
+        path: /usr/bin/chromedriver
+        owner: root
+        group: root
+        mode: '0755'
+      become: true
+
+    - name: Prepare DISPLAY value for chromedriver
+      ansible.builtin.shell: export DISPLAY=:10
+    
+    - name: Start ChromeDriver [{{ chromedriver_cmd }}]
+      ansible.builtin.shell: "{{ chromedriver_cmd }}"
+      args:
+        executable: /bin/bash
+      async: 10
+      poll: 0
+
+    - name: Install Visual Studio Code
+      ansible.builtin.snap:
+        name: code
+        classic: yes
+        state: present
+    
+    - name: Just force systemd to reread configs (2.4 and above)
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+    
+    - name: ToDo '#1 - set password for current use to use RDP
+      ansible.builtin.debug:
+        msg: "sudo passwd {{ user }}"
+    
+    - name: ToDo '#2 - add xfce4 session
+      ansible.builtin.debug:
+        msg: "echo xfce4-session>~/.xsession"
+    
+    - name: ToDo '#3 - rerun Cromedriver on selected DISPLAY
+      ansible.builtin.debug:
+        msg: "export DISPLAY=:10"

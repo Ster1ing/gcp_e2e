@@ -1,0 +1,13 @@
+---
+app_path: /var/www/html
+user: 
+app_repo: 
+git_user: 
+git_token: 
+app_repo_branch: 
+composer_workdir: 
+test_url: 
+api_url: 
+api_token:
+chromedriver_version: 130.0.6723.58
+chromedriver_cmd: chromedriver --url-base=wd/hub --port=4444 > /tmp/driver.log 2>&1 &

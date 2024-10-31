@@ -1,0 +1,14 @@
+imports:
+  - ./behat.yml.dist
+
+default: &default
+    extensions: &default_extensions
+        Behat\MinkExtension:
+            base_url: {{ test_url }}
+        Oro\Bundle\TestFrameworkBundle\Behat\ServiceContainer\OroTestFrameworkExtension:
+            artifacts:
+                handlers:
+                    local:
+                        directory: '%paths.base%/public/media/behat'
+                        base_url: ~ # default is '%mink.base_url%/media/behat/'
+                        auto_clear: false
