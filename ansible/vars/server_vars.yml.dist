@@ -10,4 +10,4 @@ test_url:
 api_url: 
 api_token:
 chromedriver_version: 130.0.6723.58
-chromedriver_cmd: chromedriver --url-base=wd/hub --port=4444 > /tmp/driver.log 2>&1 &
+chromedriver_cmd: DISPLAY=:10 chromedriver --url-base=wd/hub --port=4444 > /tmp/driver.log 2>&1 &
